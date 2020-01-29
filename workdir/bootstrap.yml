@@ -1,0 +1,8 @@
+---
+- hosts: all
+  gather_facts: no
+  remote_user: pi
+  become: true
+  tasks:
+    - name: install ansible prerequisites
+      script: scripts/bootstrap-host-ansible.sh creates=/root/.ansible_prereqs_installed

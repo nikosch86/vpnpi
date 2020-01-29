@@ -1,0 +1,78 @@
+---
+- hosts: all
+  remote_user: pi
+  become: true
+  tasks:
+    - name: install requirements
+      apt:
+        force_apt_get: yes
+        pkg:
+          - screen
+          - hostapd
+          - dnsmasq
+          - iptables-persistent
+          - openvpn
+          - dnsutils
+          - tcpdump
+
+    - name: uncomment src apt repos
+      replace:
+        backup: yes
+        path: /etc/apt/sources.list
+        regexp: '^#deb-src'
+        replace: 'deb-src'
+
+    - name: install openvpn build deps
+      apt:
+        update_cache: yes
+        force_apt_get: yes
+        name: openvpn
+        state: build-dep
+
+    - name: copy openvpn XOR build script
+      copy:
+        src: vpn/
+        dest: vpn/
+        mode: u+rwx
+
+    - name: run openvpn XOR build script
+      shell: "cd vpn && ./vpn-xor.sh"
+      args:
+        creates: vpn/openvpn-*/src/openvpn/openvpn
+
+    - name: add unstable debian sources
+      shell: "echo 'deb http://deb.debian.org/debian/ unstable main' > /etc/apt/sources.list.d/unstable.list"
+      args:
+        creates: /etc/apt/sources.list.d/unstable.list
+
+    - name: pin unstable sources
+      shell: "printf 'Package: *\nPin: release a=unstable\nPin-Priority: 90\n' > /etc/apt/preferences.d/limit-unstable"
+      args:
+        creates: /etc/apt/preferences.d/limit-unstable
+
+    - name: accept apt repo keys
+      shell: "apt-key adv --keyserver   keyserver.ubuntu.com --recv-keys 7638D0442B90D010 && apt-key adv --keyserver   keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC"
+
+    - name: install wireguard
+      apt:
+        force_apt_get: yes
+        update_cache: yes
+        pkg:
+          - wireguard
+
+    - name: copy wpa_supplicant to lib
+      copy:
+        src: configs/10-wpa_supplicant
+        dest: /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant
+
+    - name: copy config files to etc folder
+      copy:
+        src: etc/
+        dest: /etc/
+
+    - name: unmask and enable hostapd
+      systemd:
+        name: hostapd
+        state: started
+        masked: no
+        enabled: yes

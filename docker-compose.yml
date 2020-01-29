@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  control-machine:
+    build: build/
+    volumes:
+      - ./ansible:/etc/ansible
+      - ~/.ssh:/tmp/.ssh
+      - ./workdir:/ansible
