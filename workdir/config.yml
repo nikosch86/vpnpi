@@ -14,6 +14,7 @@
           - openvpn
           - dnsutils
           - tcpdump
+          - vim-nox
 
     - name: uncomment src apt repos
       replace:
@@ -30,12 +31,14 @@
         state: build-dep
 
     - name: copy openvpn XOR build script
+      become: false
       copy:
         src: vpn/
         dest: vpn/
         mode: u+rwx
 
     - name: run openvpn XOR build script
+      become: false
       shell: "cd vpn && ./vpn-xor.sh"
       args:
         creates: vpn/openvpn-*/src/openvpn/openvpn
@@ -50,8 +53,14 @@
       args:
         creates: /etc/apt/preferences.d/limit-unstable
 
-    - name: accept apt repo keys
-      shell: "apt-key adv --keyserver   keyserver.ubuntu.com --recv-keys 7638D0442B90D010 && apt-key adv --keyserver   keyserver.ubuntu.com --recv-keys 04EE7237B7D453EC"
+    - name: accept apt repo keys 1
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 7638D0442B90D010
+    - name: accept apt repo keys 2
+      apt_key:
+        keyserver: keyserver.ubuntu.com
+        id: 04EE7237B7D453EC
 
     - name: install wireguard
       apt:
@@ -76,3 +85,10 @@
         state: started
         masked: no
         enabled: yes
+
+    - name: copy scripts
+      become: false
+      copy:
+        src: scripts/
+        dest: scripts/
+        mode: u+rwx

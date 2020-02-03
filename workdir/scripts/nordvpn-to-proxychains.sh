@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -euf
 VPN_ZIPFILE=~/vpn/nordvpn-ovpn.zip
 if [ ! -f ${VPN_ZIPFILE} ]; then
   echo "zip file holding VPN configs not found, exiting!"
@@ -19,4 +19,3 @@ done
 
 popd
 rm -r ${TMP_DIR}
-

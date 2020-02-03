@@ -1,10 +1,11 @@
-#!/bin/bash
-unzip openvpn*zip
+#!/bin/bash -eu
+unzip -u openvpn*zip
 cd openvpn-*/
-mv ../openvpn-*-xorpatch.tar.gz .
+cp ../openvpn-*-xorpatch.tar.gz .
+tar xf openvpn-*-xorpatch.tar.gz
 
-for i in *diff; do patch -p1 -i $i; done
+for i in *diff; do patch -t -p1 -i $i; done
 
 ./configure --prefix=/usr
 make
-make install
+sudo make install
