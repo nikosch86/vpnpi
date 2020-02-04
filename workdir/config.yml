@@ -15,6 +15,7 @@
           - dnsutils
           - tcpdump
           - vim-nox
+          - speedtest-cli
 
     - name: uncomment src apt repos
       replace:
