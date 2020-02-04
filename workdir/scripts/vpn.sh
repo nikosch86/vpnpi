@@ -1,4 +1,18 @@
 #!/bin/bash -euf
+if [ ! -z ${1:-} ]; then
+  if [ ! -z $1 ]; then
+    if [ "$1" == "UNLOCK" ]; then
+      echo "!! DISABLING KILLSWITCH !!"
+      echo "are you sure? (y/n)"
+      read answ
+      if [ "${answ}" == "y" ]; then
+        sudo iptables -P OUTPUT ACCEPT
+        sudo iptables -F OUTPUT
+      fi
+      exit
+    fi
+  fi
+fi
 echo "choose: nordvpn pia nordvpn_xor vpn.ac"
 read VPN_PROVIDER
 echo "Enter VPN Username"
