@@ -1,0 +1,102 @@
+---
+- name: Configure the RaspberryPi as a VPN WiFi hotspot
+  hosts: all
+  remote_user: pi
+  become: true
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        update_cache: true
+        pkg:
+          - screen
+          - hostapd
+          - dnsmasq
+          - iptables-persistent
+          - openvpn
+          - wireguard
+          - dnsutils
+          - tcpdump
+          - vim-nox
+          - speedtest-cli
+
+    # --- AmneziaWG: obfuscated (DPI-resistant) WireGuard -------------------
+    # Installs the kernel module via DKMS, so it needs matching kernel headers.
+    # If DKMS cannot build (e.g. headers missing for the running Pi kernel),
+    # fall back to the userspace implementation amneziawg-go.
+    - name: Create apt keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add AmneziaWG (Amnezia PPA) signing key
+      ansible.builtin.get_url:
+        url: "https://keyserver.ubuntu.com/pks/lookup?op=get&options=mr&search=0x75C9DD72C799870E310542E24166F2C257290828"
+        dest: /etc/apt/keyrings/amnezia.asc
+        mode: "0644"
+
+    - name: Add AmneziaWG apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/amnezia.asc] https://ppa.launchpadcontent.net/amnezia/ppa/ubuntu focal main"
+        filename: amnezia
+        state: present
+
+    - name: Install AmneziaWG and kernel headers for the DKMS module
+      ansible.builtin.apt:
+        update_cache: true
+        pkg:
+          - amneziawg
+          - amneziawg-tools
+          - raspberrypi-kernel-headers
+
+    - name: Enable deb-src apt repositories
+      ansible.builtin.replace:
+        backup: true
+        path: /etc/apt/sources.list
+        regexp: '^#deb-src'
+        replace: 'deb-src'
+
+    - name: Install openvpn build dependencies
+      ansible.builtin.apt:
+        update_cache: true
+        name: openvpn
+        state: build-dep
+
+    - name: Copy openvpn XOR build files
+      become: false
+      ansible.builtin.copy:
+        src: vpn/
+        dest: vpn/
+        mode: u+rwx
+
+    - name: Build patched openvpn (XOR scramble support)
+      become: false
+      ansible.builtin.shell: "cd vpn && ./vpn-xor.sh"
+      args:
+        creates: vpn/openvpn-*/src/openvpn/openvpn
+
+    - name: Install dhcpcd wpa_supplicant hook
+      ansible.builtin.copy:
+        src: configs/10-wpa_supplicant
+        dest: /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant
+        mode: "0644"
+
+    - name: Deploy /etc configuration files
+      ansible.builtin.copy:
+        src: etc/
+        dest: /etc/
+        mode: "0644"
+
+    - name: Unmask and enable hostapd
+      ansible.builtin.systemd_service:
+        name: hostapd
+        state: started
+        masked: false
+        enabled: true
+
+    - name: Copy helper scripts
+      become: false
+      ansible.builtin.copy:
+        src: scripts/
+        dest: scripts/
+        mode: u+rwx

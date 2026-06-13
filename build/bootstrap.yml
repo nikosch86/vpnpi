@@ -1,6 +1,0 @@
----
-- hosts: all
-  gather_facts: no
-  tasks:
-    - name: install ansible prerequisites
-      script: scripts/bootstrap-host-ansible.sh creates=/root/.ansible_prereqs_installed

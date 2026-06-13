@@ -1,0 +1,11 @@
+---
+- name: Bootstrap ansible prerequisites on the RaspberryPi
+  hosts: all
+  gather_facts: false
+  remote_user: pi
+  become: true
+  tasks:
+    - name: Install ansible prerequisites (python3, sshpass)
+      ansible.builtin.script:
+        cmd: scripts/bootstrap-host-ansible.sh
+        creates: /root/.ansible_prereqs_installed
