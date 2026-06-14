@@ -1,0 +1,4 @@
+---
+# Extra vars for provisioning the Debian 12 test VM. The DKMS module builds
+# against the running cloud kernel, so pin the headers to that exact release.
+kernel_headers_package: "linux-headers-{{ ansible_kernel }}"

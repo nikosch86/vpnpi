@@ -1,0 +1,78 @@
+---
+# Assert everything that can be verified on a plain Debian VM (no Pi radio).
+- name: Verify vpnpi provisioning
+  hosts: all
+  remote_user: pi
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Collect installed-package facts
+      ansible.builtin.package_facts:
+
+    - name: Required packages are installed
+      ansible.builtin.assert:
+        that: item in ansible_facts.packages
+        success_msg: "{{ item }} is installed"
+        fail_msg: "{{ item }} is MISSING"
+      loop:
+        - hostapd
+        - dnsmasq
+        - openvpn
+        - wireguard
+        - amneziawg-tools
+
+    - name: Query the installed OpenVPN version
+      ansible.builtin.command: openvpn --version
+      register: ovpn
+      changed_when: false
+      failed_when: "'OpenVPN 2.6.20' not in ovpn.stdout"
+
+    - name: The XOR-patched OpenVPN binary was built
+      ansible.builtin.stat:
+        path: /home/pi/vpn/openvpn-2.6.20/src/openvpn/openvpn
+      register: ovpn_build
+      failed_when: not ovpn_build.stat.exists
+
+    - name: The AmneziaWG DKMS module built and installed
+      ansible.builtin.command: dkms status
+      register: dkms
+      changed_when: false
+      failed_when: "'amneziawg' not in dkms.stdout"
+
+    - name: The awg userspace tool runs
+      ansible.builtin.command: awg --version
+      register: awg
+      changed_when: false
+
+    - name: hostapd is unmasked and enabled
+      ansible.builtin.command: systemctl is-enabled hostapd
+      register: hostapd_enabled
+      changed_when: false
+      failed_when: hostapd_enabled.stdout != 'enabled'
+
+    - name: Helper scripts were deployed
+      ansible.builtin.stat:
+        path: "/home/pi/scripts/{{ item }}"
+      register: helper
+      failed_when: not helper.stat.exists
+      loop:
+        - vpn.sh
+        - vpn-wg.sh
+
+    - name: /etc configuration files were deployed
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: etcfile
+      failed_when: not etcfile.stat.exists
+      loop:
+        - /etc/dnsmasq.conf
+        - /etc/hostapd/hostapd.conf
+        - /etc/iptables/rules.v4
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg:
+          - "OpenVPN: {{ ovpn.stdout_lines[0] }}"
+          - "AmneziaWG tools: {{ awg.stdout | trim }}"
+          - "DKMS: {{ dkms.stdout_lines | select('search', 'amneziawg') | list | join(', ') }}"
+          - "hostapd: {{ hostapd_enabled.stdout }} (not started — no wireless interface on the VM)"

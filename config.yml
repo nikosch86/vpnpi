@@ -3,6 +3,11 @@
   hosts: all
   remote_user: pi
   become: true
+  vars:
+    # Kernel headers for the AmneziaWG DKMS build. Defaults to the Raspberry Pi
+    # OS package; override (e.g. "linux-headers-{{ ansible_kernel }}") when
+    # running against a plain Debian host such as the test VM.
+    kernel_headers_package: raspberrypi-kernel-headers
   tasks:
     - name: Install required packages
       ansible.builtin.apt:
@@ -47,7 +52,7 @@
         pkg:
           - amneziawg
           - amneziawg-tools
-          - raspberrypi-kernel-headers
+          - "{{ kernel_headers_package }}"
 
     - name: Enable deb-src apt repositories
       ansible.builtin.replace:
@@ -75,7 +80,13 @@
       args:
         creates: vpn/openvpn-*/src/openvpn/openvpn
 
+    - name: Check for the dhcpcd hooks directory
+      ansible.builtin.stat:
+        path: /lib/dhcpcd/dhcpcd-hooks
+      register: dhcpcd_hooks
+
     - name: Install dhcpcd wpa_supplicant hook
+      when: dhcpcd_hooks.stat.isdir | default(false)
       ansible.builtin.copy:
         src: configs/10-wpa_supplicant
         dest: /lib/dhcpcd/dhcpcd-hooks/10-wpa_supplicant
@@ -90,9 +101,14 @@
     - name: Unmask and enable hostapd
       ansible.builtin.systemd_service:
         name: hostapd
-        state: started
         masked: false
         enabled: true
+
+    - name: Start hostapd when a wireless interface is present
+      when: ansible_facts.interfaces | select('match', '^wlan') | list | length > 0
+      ansible.builtin.systemd_service:
+        name: hostapd
+        state: started
 
     - name: Copy helper scripts
       become: false

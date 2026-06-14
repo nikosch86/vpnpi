@@ -1,0 +1,19 @@
+#cloud-config
+# Cloud-init for the Debian 12 test VM. run.sh substitutes __SSH_PUBKEY__.
+hostname: vpnpi-test
+preserve_hostname: false
+
+users:
+  - name: pi
+    groups: [sudo]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - __SSH_PUBKEY__
+
+# Enable deb-src for `apt build-dep openvpn` on the deb822 Debian cloud image.
+# The command is quoted because the sed expression contains a colon-space,
+# which is not a valid unquoted YAML scalar.
+runcmd:
+  - "sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources"
