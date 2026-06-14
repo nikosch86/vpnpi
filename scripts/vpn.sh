@@ -1,10 +1,10 @@
-#!/bin/bash -euf
-if [ ! -z ${1:-} ]; then
-  if [ ! -z $1 ]; then
+#!/bin/bash -eu
+if [ -n "${1:-}" ]; then
+  if [ -n "$1" ]; then
     if [ "$1" == "UNLOCK" ]; then
       echo "!! DISABLING KILLSWITCH !!"
       echo "are you sure? (y/n)"
-      read answ
+      read -r answ
       if [ "${answ}" == "y" ]; then
         sudo iptables -P OUTPUT ACCEPT
         sudo iptables -F OUTPUT
@@ -14,11 +14,11 @@ if [ ! -z ${1:-} ]; then
   fi
 fi
 echo "choose: nordvpn pia nordvpn_xor vpn.ac"
-read VPN_PROVIDER
+read -r VPN_PROVIDER
 echo "Enter VPN Username"
-read vpn_user
+read -r vpn_user
 echo "Enter VPN Password"
-read -s vpn_pass
+read -rs vpn_pass
 if [ "${VPN_PROVIDER}" == "vpn.ac" ]; then
   echo "  vpn.ac works differently, only one config with multiple servers in it"
   echo "  circumventing all the magic"
@@ -37,22 +37,22 @@ else
     echo "invalid choice ${VPN_PROVIDER}"
     exit
   fi
-  if [ ! -f ${VPN_ZIPFILE} ]; then
+  if [ ! -f "${VPN_ZIPFILE}" ]; then
     echo "zip file holding VPN configs not found, exiting!"
     exit
   fi
 
   TMP_DIR=$(mktemp -d)
-  pushd $TMP_DIR
-  cp ${VPN_ZIPFILE} . && unzip ${VPN_ZIPFILE} > /dev/null
+  pushd "$TMP_DIR"
+  cp "${VPN_ZIPFILE}" . && unzip "${VPN_ZIPFILE}" > /dev/null
   echo "  removing US and CA servers"
   if [ "${VPN_PROVIDER}" == "pia" ]; then
-    mkdir ovpn_udp && mv *ovpn ovpn_udp/
+    mkdir ovpn_udp && mv ./*ovpn ovpn_udp/
     rm ovpn_udp/{US,CA}*ovpn
   else
     rm ovpn_udp/{us,ca}*ovpn
   fi
-  sed -i 's,auth-user-pass,auth-user-pass auth.txt,g' */*ovpn
+  sed -i 's,auth-user-pass,auth-user-pass auth.txt,g' ./*/*ovpn
   echo -en "${vpn_user}\n${vpn_pass}" > auth.txt
   chmod 600 auth.txt
   popd
@@ -61,8 +61,8 @@ sudo cp /etc/resolv.conf /etc/resolv.conf.bak
 echo "  setting 8.8.8.8 nameserver"
 echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
 echo "  Flushing OUTPUT chain? (y/n) default: n"
-read ANSW
-if [ " ${ANSW}" == "y" ]; then
+read -r ANSW
+if [ "${ANSW}" == "y" ]; then
 	sudo iptables -F OUTPUT
 fi
 echo "  VPN killswitch for UDP 1194/1198/1216/2231 connection and LAN"
@@ -81,13 +81,13 @@ if [ "${VPN_PROVIDER}" == "vpn.ac" ]; then
   sudo openvpn --config vpn.ac-xor-tcp.ovpn
   popd
 else
-  pushd $TMP_DIR
+  pushd "$TMP_DIR"
   echo "reading vpn server list, randomize, pick one"
-  find ovpn_udp -iname "*ovpn"  | sort -R | while read vpn; do if [ -f stop ]; then break; fi; echo; echo; echo $vpn; echo; echo; sudo openvpn --config "$vpn"; done
+  find ovpn_udp -iname "*ovpn"  | sort -R | while read -r vpn; do if [ -f stop ]; then break; fi; echo; echo; echo "$vpn"; echo; echo; sudo openvpn --config "$vpn"; done
   # for vpn in $(ls ovpn_udp/*ovpn | sort -R); do if [ -f stop ]; then break; fi; echo; echo; echo $vpn; echo; echo; openvpn --config "$vpn"; done
   # while true; do sleeptime=$(for i in {10..30}; do echo $i; done | sort -R | head -n1); curl ifconfig.co/city; sleep $sleeptime; done
   popd
-  rm -r $TMP_DIR
+  rm -r "$TMP_DIR"
 fi
 echo "  setting original nameserver config"
 sudo  mv /etc/resolv.conf.bak /etc/resolv.conf
